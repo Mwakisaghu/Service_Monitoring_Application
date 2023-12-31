@@ -59,7 +59,7 @@ public class CreateCsvFile {
         csvWriter.append("\n");
     }
 
-    private static void print(String message) {
+    public static void print(String message) {
         // Print messages with timestamp - for the console output
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         LocalDateTime now = LocalDateTime.now();
