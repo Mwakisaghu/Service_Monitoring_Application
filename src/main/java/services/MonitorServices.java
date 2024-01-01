@@ -33,7 +33,7 @@ public class MonitorServices {
     }
 
     // Monitoring services - in the created csv file
-    private void serviceMonitor() throws FileNotFoundException {
+    public void serviceMonitor() throws FileNotFoundException {
         try (BufferedReader bufferedReader = new BufferedReader(new FileReader(csvFilePath))) {
             String line;
 
