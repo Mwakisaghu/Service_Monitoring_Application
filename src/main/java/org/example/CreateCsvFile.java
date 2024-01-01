@@ -6,9 +6,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public class CreateCsvFile {
-    public static void main(String[] args) {
-        // Path to store csv file
-        String csvFilePath = "/home/hmc/Documents/services.csv";
+    public void createCsvFile(String csvFilePath) {
 
         // CSV Data
         String[] header = new String[]{"ID", "Service Name", "Service Port", "Service Port", "Service Resource URI",
