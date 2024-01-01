@@ -6,6 +6,10 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -58,6 +62,41 @@ public class MonitorServices {
 
     // Function to log statuses of each service
     private void logStatus(String serviceName, String host, int port, String resourceUri) {
+        try {
+            // Checking if the server is reachable.
+            InetAddress inetAddress = InetAddress.getByName(host);
+            boolean isReachable = inetAddress.isReachable(5000);
 
+            try (Socket socket = new Socket(host, port)) {
+                // Checking if the service is UP - connection established to the specified port
+                if (isReachable) {
+                    CreateCsvFile.print(serviceName + " - Status: UP - Timestamp: " + getTimestamp());
+                } else {
+                    CreateCsvFile.print(serviceName + " - Status: DOWN - Timestamp: " + getTimestamp());
+                }
+            } catch (IOException e) {
+                // Logging the service status as DOWN.
+                CreateCsvFile.print(serviceName + " - Status: DOWN - Timestamp: " + getTimestamp());
+            }
+        } catch (IOException e) {
+            // Exception to check the reachability
+            CreateCsvFile.print("An error occurred while checking the hosts reachability: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    // Getting the timestamp in a specific format
+    private String getTimestamp() {
+     try {
+         DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+         LocalDateTime now = LocalDateTime.now();
+         return dateTimeFormatter.format(now);
+     } catch (Exception e) {
+         // Handle any exceptions when getting the timestamp
+         CreateCsvFile.print("An Error occurred while getting the timestamp: " + e.getMessage());
+         e.printStackTrace();
+         return "Timestamp Error";
+     }
     }
 }
