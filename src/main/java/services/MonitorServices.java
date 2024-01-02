@@ -3,10 +3,8 @@ package services;
 import org.example.CreateCsvFile;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.Socket;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -23,17 +21,17 @@ public class MonitorServices {
     }
 
     // Monitor services at regular intervals
-    public void serviceMonitor(String csvFilePath) {
+    public void serviceMonitor() {
 
         // Initialize services scheduler - at fixed intervals
         ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(2);
 
         // Periodically monitor services in csv
-        scheduledExecutorService.scheduleAtFixedRate(() -> serviceMonitor(csvFilePath), 0, 1, TimeUnit.MINUTES);
+        scheduledExecutorService.scheduleAtFixedRate(this::checkServices, 0, 1, TimeUnit.MINUTES);
     }
 
     // Monitoring services - in the created csv file
-    public void serviceMonitor() throws FileNotFoundException {
+    public void checkServices() {
         try (BufferedReader bufferedReader = new BufferedReader(new FileReader(csvFilePath))) {
             String line;
 
@@ -62,42 +60,33 @@ public class MonitorServices {
 
     // Function to log statuses of each service
     private void logStatus(String serviceName, String host, int port, String resourceUri) {
-        try {
-            // Checking if the server is reachable.
-            InetAddress inetAddress = InetAddress.getByName(host);
-            boolean isReachable = inetAddress.isReachable(5000);
+        try (Socket socket = new Socket()) {
+            // Set a timeout for the socket connection (e.g., 5 seconds)
+            socket.connect(new java.net.InetSocketAddress(host, port), 5000);
 
-            try (Socket socket = new Socket(host, port)) {
-                // Checking if the service is UP - connection established to the specified port
-                if (isReachable) {
-                    CreateCsvFile.print(serviceName + " - Status: UP - Timestamp: " + getTimestamp());
-                } else {
-                    CreateCsvFile.print(serviceName + " - Status: DOWN - Timestamp: " + getTimestamp());
-                }
-            } catch (IOException e) {
-                // Logging the service status as DOWN.
-                CreateCsvFile.print(serviceName + " - Status: DOWN - Timestamp: " + getTimestamp());
-                e.printStackTrace();
-            }
+            // Checking if the service is UP - connection established to the specified port
+            CreateCsvFile.print(serviceName + " - Status: UP - Timestamp: " + getTimestamp());
+        } catch (java.net.ConnectException e) {
+            // Logging the service status as DOWN - connection issues.
+            CreateCsvFile.print(serviceName + " - Status: DOWN - Connection Error - Timestamp: " + getTimestamp());
         } catch (IOException e) {
-            // Exception to check the reachability
-            CreateCsvFile.print("An error occurred while checking the hosts reachability: " + e.getMessage());
+            // Logging the service status as DOWN for other IO issues.
+            CreateCsvFile.print(serviceName + " - Status: DOWN - IO Error - Timestamp: " + getTimestamp());
             e.printStackTrace();
         }
     }
 
-
     // Getting the timestamp in a specific format
     private String getTimestamp() {
-     try {
-         DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-         LocalDateTime now = LocalDateTime.now();
-         return dateTimeFormatter.format(now);
-     } catch (Exception e) {
-         // Handle any exceptions when getting the timestamp
-         CreateCsvFile.print("An Error occurred while getting the timestamp: " + e.getMessage());
-         e.printStackTrace();
-         return "Timestamp Error";
-     }
+        try {
+            DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            LocalDateTime now = LocalDateTime.now();
+            return dateTimeFormatter.format(now);
+        } catch (Exception e) {
+            // Handle any exceptions when getting the timestamp
+            CreateCsvFile.print("An Error occurred while getting the timestamp: " + e.getMessage());
+            e.printStackTrace();
+            return "Timestamp Error";
+        }
     }
 }
