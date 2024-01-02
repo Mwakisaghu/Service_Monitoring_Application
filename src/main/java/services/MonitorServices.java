@@ -77,6 +77,7 @@ public class MonitorServices {
             } catch (IOException e) {
                 // Logging the service status as DOWN.
                 CreateCsvFile.print(serviceName + " - Status: DOWN - Timestamp: " + getTimestamp());
+                e.printStackTrace();
             }
         } catch (IOException e) {
             // Exception to check the reachability
