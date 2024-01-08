@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
 public class MonitorServices {
     private final String csvFilePath;
     private final boolean enableFileLogging;
-    private final FileLogger fileLogger;  // This should be declared at the class level
+    private final FileLogger fileLogger;
 
     public MonitorServices(String csvFilePath, boolean enableFileLogging, String logFilePath) {
         this.csvFilePath = csvFilePath;
