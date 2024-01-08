@@ -16,14 +16,8 @@ public class MainApp {
         createCsvFile.createCsvFile(csvFilePath);
 
         // Monitoring the services
-        MonitorServices monitorServices = new MonitorServices(csvFilePath);
+        MonitorServices monitorServices = new MonitorServices(csvFilePath, true, "/home/hmc/Documents/log_services.csv");
 
         monitorServices.serviceMonitor();
     }
 }
-
-
-
-
-
-
