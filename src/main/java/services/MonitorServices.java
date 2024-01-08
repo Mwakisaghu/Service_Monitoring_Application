@@ -1,10 +1,7 @@
 package services;
 
-import org.example.CreateCsvFile;
-
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -15,64 +12,126 @@ import java.util.concurrent.TimeUnit;
 public class MonitorServices {
     private final String csvFilePath;
 
-    // Constructor - initialise the path
+    // Constructor - initialize the path
     public MonitorServices(String csvFilePath) {
         this.csvFilePath = csvFilePath;
     }
 
     // Monitor services at regular intervals
     public void serviceMonitor() {
-
         // Initialize services scheduler - at fixed intervals
         ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(2);
 
         // Periodically monitor services in csv
-        scheduledExecutorService.scheduleAtFixedRate(this::checkServices, 0, 1, TimeUnit.MINUTES);
+        scheduledExecutorService.scheduleAtFixedRate(this::checkAllServices, 0, 1, TimeUnit.MINUTES);
     }
 
-    // Monitoring services - in the created csv file
-    public void checkServices() {
+    // Check all services in the CSV
+    private void checkAllServices() {
         try (BufferedReader bufferedReader = new BufferedReader(new FileReader(csvFilePath))) {
             String line;
 
-            // Skips the csv header
+            // Skips the CSV header
             bufferedReader.readLine();
 
-            // Looping through each service in the csv
+            // Looping through each service in the CSV
             while ((line = bufferedReader.readLine()) != null) {
                 String[] serviceData = line.split(",");
                 String serviceName = serviceData[1];
                 String host = serviceData[2];
                 int port = Integer.parseInt(serviceData[3]);
-                String resourceUri = serviceData[4];
 
-                // Record/log status of the current service
-                logStatus(serviceName, host, port, resourceUri);
+                // Check server status and log
+                if (isServerReachable(host, port)) {
+                    // Checking if the service is UP - connection established to the specified port
+                    boolean isServiceUp = isServiceUp(host, port);
+                    logServiceStatus(serviceName, host, port, getTimestamp(), isServiceUp);
+                } else {
+                    // Logging the server as unreachable.
+                    logServerStatus(serviceName, host, port, getTimestamp());
+                }
             }
 
         } catch (IOException e) {
-            // Handle errors when reading the csv file
-            CreateCsvFile.print("An error occurred while reading the csv file: " + e.getMessage());
-            e.printStackTrace();
+            System.out.println("An error occurred: " + e.getMessage());
         }
     }
 
+    // Function to log service status
+    private void logServiceStatus(String serviceName, String host, int port, String timestamp, boolean isServiceUp) throws IOException {
+        // Log the information and print in a table format
+        TablePrinter.printTableHeader();
+        TablePrinter.printTableRow(getServiceTableId(), serviceName, Integer.toString(port), timestamp, (isServiceUp ? "UP" : "DOWN"));
+        TablePrinter.printTableSeparator();
 
-    // Function to log statuses of each service
-    private void logStatus(String serviceName, String host, int port, String resourceUri) {
-        try (Socket socket = new Socket()) {
-            // Set a timeout for the socket connection (e.g., 5 seconds)
-            socket.connect(new java.net.InetSocketAddress(host, port), 5000);
+        // Log actual telnet responses
+        String telnetResponse = executeTelnetCommand(host, port);
+        TablePrinter.printTableRow("Telnet Response", "", "", "", "");
+        TablePrinter.printTableSeparator();
+        TablePrinter.printTableRow(telnetResponse, "", "", "", "");
+        TablePrinter.printTableSeparator();
 
-            // Checking if the service is UP - connection established to the specified port
-            CreateCsvFile.print(serviceName + " - Status: UP - Timestamp: " + getTimestamp());
-        } catch (java.net.ConnectException e) {
-            // Logging the service status as DOWN - connection issues.
-            CreateCsvFile.print(serviceName + " - Status: DOWN - Connection Error - Timestamp: " + getTimestamp());
+        // Log the footer
+        TablePrinter.printTableFooter();
+    }
+
+    // Function to log server status
+    private void logServerStatus(String serviceName, String host, int port, String timestamp) {
+        TablePrinter.printTableHeader();
+        TablePrinter.printTableRow(getServiceTableId(), serviceName, Integer.toString(port), timestamp, "UNREACHABLE");
+        TablePrinter.printTableSeparator();
+
+        // Logging the footer
+        TablePrinter.printTableFooter();
+    }
+
+    // Method to generate a service table ID
+    private String getServiceTableId() {
+        return String.valueOf(System.currentTimeMillis());
+    }
+
+    // Checking if the service is up by establishing a socket connection
+    private boolean isServiceUp(String host, int port) {
+        try (Socket socket = new Socket(host, port)) {
+            return true;
         } catch (IOException e) {
-            // Logging the service status as DOWN for other IO issues.
-            CreateCsvFile.print(serviceName + " - Status: DOWN - IO Error - Timestamp: " + getTimestamp());
-            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // Check if the server is reachable using a socket connection
+    private boolean isServerReachable(String host, int port) {
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(host, port), 2000);
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    // Execute telnet command - logs the actual telnet responses.
+    private String executeTelnetCommand(String host, int port) throws IOException {
+        ProcessBuilder processBuilder = new ProcessBuilder("telnet", host, Integer.toString(port));
+        Process process = processBuilder.start();
+
+        // Capture telnet command output
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            StringBuilder telnetOutput = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                telnetOutput.append(line).append(System.lineSeparator());
+            }
+
+            // Wait for the process to finish
+            int exitCode;
+            try {
+                exitCode = process.waitFor();
+            } catch (InterruptedException e) {
+                throw new IOException("Telnet command interrupted: " + e.getMessage());
+            }
+
+            // If the exit code is 0, the telnet command was successful
+            return "Exit Code: " + exitCode + System.lineSeparator() + telnetOutput.toString();
         }
     }
 
@@ -84,9 +143,27 @@ public class MonitorServices {
             return dateTimeFormatter.format(now);
         } catch (Exception e) {
             // Handle any exceptions when getting the timestamp
-            CreateCsvFile.print("An Error occurred while getting the timestamp: " + e.getMessage());
-            e.printStackTrace();
+            System.out.println("An error occurred while getting the timestamp: " + e.getMessage());
             return "Timestamp Error";
+        }
+    }
+
+    // Utility class - for console output layout
+    private static class TablePrinter {
+        public static void printTableHeader() {
+            System.out.println("+------------+-----------------+-------+----------------------+---------------+");
+        }
+
+        public static void printTableRow(String... columns) {
+            System.out.printf("| %-10s | %-15s | %-5s | %-20s | %-13s |%n", columns);
+        }
+
+        public static void printTableSeparator() {
+            System.out.println("+------------+-----------------+-------+----------------------+---------------+");
+        }
+
+        public static void printTableFooter() {
+            System.out.println();
         }
     }
 }
