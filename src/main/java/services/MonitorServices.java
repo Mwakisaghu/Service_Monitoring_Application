@@ -1,5 +1,7 @@
 package services;
 
+import logs.FileLogger;
+
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -11,10 +13,13 @@ import java.util.concurrent.TimeUnit;
 
 public class MonitorServices {
     private final String csvFilePath;
+    private final boolean enableFileLogging;
+    private final FileLogger fileLogger;  // This should be declared at the class level
 
-    // Constructor - initialize the path
-    public MonitorServices(String csvFilePath) {
+    public MonitorServices(String csvFilePath, boolean enableFileLogging, String logFilePath) {
         this.csvFilePath = csvFilePath;
+        this.enableFileLogging = enableFileLogging;
+        this.fileLogger = new FileLogger(logFilePath);
     }
 
     // Monitor services at regular intervals
@@ -73,6 +78,11 @@ public class MonitorServices {
 
         // Log the footer
         TablePrinter.printTableFooter();
+
+        // Log to file if enabled
+        if (enableFileLogging) {
+            fileLogger.logInfo(serviceName + " - " + (isServiceUp ? "UP" : "DOWN") + " - " + timestamp);
+        }
     }
 
     // Function to log server status
@@ -83,6 +93,11 @@ public class MonitorServices {
 
         // Logging the footer
         TablePrinter.printTableFooter();
+
+        // Log to file if enabled
+        if (enableFileLogging) {
+            fileLogger.logWarning(serviceName + " - UNREACHABLE - " + timestamp);
+        }
     }
 
     // Method to generate a service table ID
